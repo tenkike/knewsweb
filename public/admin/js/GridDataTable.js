@@ -81,7 +81,7 @@ class GridDataTable {
                     },
                 },
                 columns: columns, // Definir columnas al inicializar
-                serverSide: false,
+                serverSide: true,
                 processing: true,
                 responsive: true,
                 pagingType: 'full_numbers',

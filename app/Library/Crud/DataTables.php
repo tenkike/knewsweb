@@ -20,7 +20,7 @@ class DataTables extends DatabaseInfo
     protected $createInputs = [];
     protected $editInputs = [];
     protected $gridHtml=[];
-    protected $totalPages = 10;
+    protected $totalPages = 10; // Número total de páginas para paginación
     public $formHtmlCreate;
     public $formHtmlUpdate;
     public $arrayAddActions = [];

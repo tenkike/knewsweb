@@ -24,7 +24,7 @@
 <script>
 // Inicializa la grilla
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('Inicializando GridDataTable');
+   // console.log('Inicializando GridDataTable');
     const grid = new GridDataTable();
     grid.initialize();
 });
