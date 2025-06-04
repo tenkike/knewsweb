@@ -1,0 +1,10 @@
+.btn.btn-create, 
+.btn.btn-update{
+  color: #fff;
+  padding: 8px 60px 8px 60px;
+}
+
+.btn.btn-back{
+    color: #fff;
+    padding: 8px 30px 8px 30px;
+  }

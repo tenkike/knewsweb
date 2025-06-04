@@ -1,0 +1,8 @@
+/**btn class bootstrap*/
+
+.btn.btn-update, 
+.btn.btn-delete, 
+.btn.btn-images {
+  color: #fff;
+  padding: 12px;
+}
