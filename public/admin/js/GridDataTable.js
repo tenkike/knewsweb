@@ -24,7 +24,7 @@ class GridDataTable {
         }
     }
 
-    initialize() {
+    async initialize() {
         const tableElement = document.getElementById(this.tableName);
         if (!tableElement) {
             console.error(`No se encontró la tabla con ID #${this.tableName}`);
@@ -35,6 +35,16 @@ class GridDataTable {
         }
 
         try {
+            // Paso 1: Obtener la estructura de datos (columnas) primero
+            const columns = await this.fetchColumns();
+
+            if (!columns || columns.length === 0) {
+                console.error('No se pudieron obtener las columnas');
+                this.tableContainer.innerHTML = '<p>Error: No se pudieron obtener las columnas del servidor.</p>';
+                return null;
+            }
+
+            // Paso 2: Inicializar DataTables con las columnas obtenidas
             const table = new DataTable(`#${this.tableName}`, {
                 ajax: {
                     url: this.pathname,
@@ -56,7 +66,7 @@ class GridDataTable {
                         const cacheKey = `grid_${this.tableName}`;
                         localStorage.setItem(cacheKey, JSON.stringify({ data: json, timestamp: Date.now() }));
                         return json.data;
-                    }.bind(this), // Asegura que 'this' sea GridDataTable
+                    }.bind(this),
                     error: (xhr, error, thrown) => {
                         console.error('Error en la solicitud AJAX:', {
                             status: xhr.status,
@@ -70,7 +80,8 @@ class GridDataTable {
                         }
                     },
                 },
-                serverSide: true,
+                columns: columns, // Definir columnas al inicializar
+                serverSide: false,
                 processing: true,
                 responsive: true,
                 pagingType: 'full_numbers',
@@ -92,48 +103,19 @@ class GridDataTable {
                 },
             });
 
+            // Paso 3: Manejar xhr.dt para actualizaciones de datos, no columnas
             table.on('xhr.dt', (e, settings, json) => {
                 console.log('Evento xhr.dt ejecutado', json);
                 if (!json || !json.data || !json.data.length) {
-                    console.warn('No hay datos para generar columnas:', json);
+                    console.warn('No hay datos para mostrar:', json);
                     table.clear().draw();
                     return;
                 }
-
-                try {
-                    const columns = Object.keys(json.data[0]).map(key => ({
-                        data: key,
-                        title: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-                        render: (data, type, row) => {
-                            if (key === 'actions' && data) {
-                                try {
-                                    return Object.keys(data).map(action => {
-                                        const icon = action === 'delete' ? 'trash' :
-                                                    action === 'update' ? 'pen-to-square' : 'images';
-                                        return `<a href="${data[action]}" class="btn btn-sm btn-${action === 'delete' ? 'danger' : 'primary'}" title="Click to ${action}">
-                                            <i class="fa-solid fa-${icon} fa-sm"></i>
-                                        </a>`;
-                                    }).join(' ');
-                                } catch (err) {
-                                    console.error('Error al renderizar acciones:', err, data);
-                                    return '';
-                                }
-                            }
-                            const div = document.createElement('div');
-                            div.textContent = data != null ? data : '';
-                            return div.innerHTML;
-                        },
-                    }));
-
-                    console.log('Columnas generadas:', columns);
-                    table.columns(columns).draw();
-                } catch (err) {
-                    console.error('Error al generar columnas:', err);
-                    table.clear().draw();
-                }
+                // No redefinimos columnas aquí, solo actualizamos datos
             });
 
-            // Cargar desde caché si está disponible
+            
+            // Paso 4: Cargar desde caché si está disponible
             const cacheKey = `grid_${this.tableName}`;
             const cached = localStorage.getItem(cacheKey);
             const cacheTTL = 5 * 60 * 1000; // 5 minutos
@@ -142,25 +124,7 @@ class GridDataTable {
                 if (Date.now() - timestamp < cacheTTL) {
                     console.log('Cargando datos desde caché');
                     if (data && data.data && data.data.length) {
-                        const columns = Object.keys(data.data[0]).map(key => ({
-                            data: key,
-                            title: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-                            render: (data, type, row) => {
-                                if (key === 'actions' && data) {
-                                    return Object.keys(data).map(action => {
-                                        const icon = action === 'delete' ? 'trash' :
-                                                    action === 'update' ? 'pen-to-square' : 'images';
-                                        return `<a href="${data[action]}" class="btn btn-sm btn-${action === 'delete' ? 'danger' : 'primary'}" title="Click to ${action}">
-                                            <i class="fa-solid fa-${icon} fa-sm"></i>
-                                        </a>`;
-                                    }).join(' ');
-                                }
-                                const div = document.createElement('div');
-                                div.textContent = data != null ? data : '';
-                                return div.innerHTML;
-                            },
-                        }));
-                        table.columns(columns).data().clear().rows.add(data.data).draw();
+                        table.clear().rows.add(data.data).draw();
                     }
                 }
             }
@@ -172,6 +136,52 @@ class GridDataTable {
                 this.tableContainer.innerHTML = '<p>Error al inicializar la tabla. Contacte al administrador.</p>';
             }
             return null;
+        }
+    }
+
+    // Nueva función para obtener columnas iniciales
+    async fetchColumns() {
+        try {
+            const response = await fetch(this.pathname, {
+                method: 'GET',
+                headers: {
+                    'X-CSRF-TOKEN': this.token,
+                },
+            });
+            const json = await response.json();
+            console.log('Estructura de datos inicial:', json);
+
+            if (!json || !json.data || !json.data.length) {
+                console.warn('No hay datos para generar columnas:', json);
+                return [];
+            }
+
+            return Object.keys(json.data[0]).map(key => ({
+                data: key,
+                title: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                render: (data, type, row) => {
+                    if (key === 'actions' && data) {
+                        try {
+                            return Object.keys(data).map(action => {
+                                const icon = action === 'delete' ? 'trash' :
+                                            action === 'update' ? 'pen-to-square' : 'images';
+                                return `<a href="${data[action]}" class="btn btn-sm btn-${action === 'delete' ? 'danger' : 'primary'}" title="Click to ${action}">
+                                    <i class="fa-solid fa-${icon} fa-sm"></i>
+                                </a>`;
+                            }).join(' ');
+                        } catch (err) {
+                            console.error('Error al renderizar acciones:', err, data);
+                            return '';
+                        }
+                    }
+                    const div = document.createElement('div');
+                    div.textContent = data != null ? data : '';
+                    return div.innerHTML;
+                },
+            }));
+        } catch (err) {
+            console.error('Error al obtener columnas:', err);
+            return [];
         }
     }
 
