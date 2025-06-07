@@ -31,9 +31,9 @@ class DashboardController extends Controller
         if (empty($getShemaData)) {
             // Opcional: manejar el caso de datos vacíos
             Log::warning('No se encontraron datos de esquema para el dashboard: ' . json_encode($getShemaData) . ' en ' . __METHOD__);
-            //$getShemaData = '{}';
+            $getShemaData = '{}';
         }
-        //dd($getShemaData);
+
         // Compartir las rutas con la vista
         return view('admin.dashboard', compact('title', 'getShemaData'));
     }
