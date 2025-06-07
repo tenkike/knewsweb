@@ -9,7 +9,7 @@ use Carbon\Carbon;
 class DataSchema
 {
     private const DB_DATABASE = 'carthome';
-	private const CACHE_TTL = 0.60; // 1 hora en minutos
+	private const CACHE_TTL = 1440; // 24 horas en minutos
     public static $schemaDataTable = [];
 
     protected function __construct()
