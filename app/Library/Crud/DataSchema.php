@@ -10,11 +10,12 @@ class DataSchema
 {
     private const DB_DATABASE = 'carthome';
 	private const CACHE_TTL = 1440; // 24 horas en minutos
-    public static $schemaDataTable = [];
+    public static $dataGraficMetrics = null;
 
     protected function __construct()
     {
         // Evita la instanciación
+        handleException(new \Exception('DataSchema is a static class and cannot be instantiated.'));
     }
 
 	/**
@@ -113,45 +114,63 @@ class DataSchema
      * @param array $data
      * @return void
      */
-    private static function processSchemaDataTable(array $data): void
+    protected static function processDataMetrics(array $data): void
     {
-        $result = [];
-        $totalAvg = $totalDataLength = $totalIndexLength = 0;
-        if (empty($data)) {
-            Log::error("Error en processSchemaDataTable: data está vacío". json_encode($data));
-            return;
-        }
+        $cacheKey = 'schema_tables_metrics_' . self::DB_DATABASE;
 
-        foreach ($data as $row) {
-            $tableName = $row['TABLE_NAME'];
-            $result[$tableName][] = [
-                'table_schema' => $row['TABLE_SCHEMA'],
-                'table_name' => $row['TABLE_NAME'],
-                'table_type' => $row['TABLE_TYPE'],
-                'engine' => $row['ENGINE'],
-                'table_rows' => $row['TABLE_ROWS'],
-                'avg_row_length' => self::convertBytes('KB', $row['AVG_ROW_LENGTH']),
-                'data_length' => self::convertBytes('KB', $row['DATA_LENGTH']),
-                'index_length' => self::convertBytes('KB', $row['INDEX_LENGTH']),
-                'auto_increment' => $row['AUTO_INCREMENT'],
-                'create_time' => $row['CREATE_TIME'],
-                'update_time' => $row['UPDATE_TIME'],
-                'table_collation' => $row['TABLE_COLLATION'],
-                'table_comment' => $row['TABLE_COMMENT'],
+        // Usar Cache::remember con las variables necesarias en el closure
+        $result = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($data, $cacheKey, &$result, &$totalAvg, &$totalDataLength, &$totalIndexLength) {
+            Log::info('Procesando datos para vista Dashboard tablas', ['cacheKey' => $cacheKey]);
+
+            $result = [];
+            $totalAvg = $totalDataLength = $totalIndexLength = 0;
+
+            foreach ($data as $row) {
+                $tableName = $row['TABLE_NAME'];
+                $result[$tableName][] = [
+                    'table_schema' => $row['TABLE_SCHEMA'],
+                    'table_name' => $row['TABLE_NAME'],
+                    'table_type' => $row['TABLE_TYPE'],
+                    'engine' => $row['ENGINE'],
+                    'table_rows' => $row['TABLE_ROWS'],
+                    'avg_row_length' => self::convertBytes('KB', $row['AVG_ROW_LENGTH']),
+                    'data_length' => self::convertBytes('KB', $row['DATA_LENGTH']),
+                    'index_length' => self::convertBytes('KB', $row['INDEX_LENGTH']),
+                    'auto_increment' => $row['AUTO_INCREMENT'],
+                    'create_time' => $row['CREATE_TIME'],
+                    'update_time' => $row['UPDATE_TIME'],
+                    'table_collation' => $row['TABLE_COLLATION'],
+                    'table_comment' => $row['TABLE_COMMENT'],
+                ];
+
+                $totalAvg += $row['AVG_ROW_LENGTH'];
+                $totalDataLength += $row['DATA_LENGTH'];
+                $totalIndexLength += $row['INDEX_LENGTH'];
+            }
+
+            $result['total'] = [
+                'total_avg_row_length' => self::convertBytes('KB', $totalAvg),
+                'total_data_length' => self::convertBytes('KB', $totalDataLength),
+                'total_index_length' => self::convertBytes('KB', $totalIndexLength),
             ];
 
-            $totalAvg += $row['AVG_ROW_LENGTH'];
-            $totalDataLength += $row['DATA_LENGTH'];
-            $totalIndexLength += $row['INDEX_LENGTH'];
+            // Log de información
+            Log::info('Datos procesados para vista Dashboard tablas', [
+                'total_avg_row_length' => $result['total']['total_avg_row_length'],
+                'total_data_length' => $result['total']['total_data_length'],
+                'total_index_length' => $result['total']['total_index_length'],
+            ]);
+
+            // Guardar en la variable estática como array (no JSON)
+            self::$dataGraficMetrics = $result;
+
+            return $result; // Retornar el resultado para Cache::remember
+        });
+
+        // Actualizar $dataGraficMetrics con el resultado de la caché si no se calculó
+        if (self::$dataGraficMetrics === null) {
+            self::$dataGraficMetrics = $result;
         }
-
-        $result['total'] = [
-            'total_avg_row_length' => self::convertBytes('KB', $totalAvg),
-            'total_data_length' => self::convertBytes('KB', $totalDataLength),
-            'total_index_length' => self::convertBytes('KB', $totalIndexLength),
-        ];
-
-        self::$schemaDataTable = json_encode($result);
     }
 
     /**
@@ -179,7 +198,7 @@ class DataSchema
                     $result[$row['TABLE_NAME']] = $row['TABLE_NAME'];
                 }
 
-                self::processSchemaDataTable($data);
+                self::processDataMetrics($data);
                 return $result;
             } catch (\Exception $e) {
                 self::handleException($e);

@@ -25,7 +25,7 @@
 @endsection
 
 @section('js_script')
-    <script src="{{asset('admin/js/chart.js')}}" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.js" crossorigin="anonymous"></script>
     <script src="{{asset('admin/js/dashboard.chart.js')}}" crossorigin="anonymous" integrity="{{csrf_token()}}"></script>
 @endsection
 
@@ -48,7 +48,7 @@
             legend.chart.update();
         }
 
-        new DashboardChart({!! $getShemaData !!}, HandleLeave, HandleHover);
+        new DashboardChart({!! $dataMetrics !!}, HandleLeave, HandleHover);
         
     });
 

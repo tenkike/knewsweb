@@ -17,6 +17,7 @@ class ClearSchemaCache extends Command
 
         Cache::forget('schema_tables_' . $dbName);
         Cache::forget('schema_tables_data_' . $dbName);
+        Cache::forget('schema_tables_metrics_' . $dbName);
         Cache::forget('input_forms_' . $dbName);
 
         $tables = DataSchema::getInformationTables();
@@ -29,6 +30,7 @@ class ClearSchemaCache extends Command
                 Cache::forget('form_config_form_' . $dbName . '_' . $table);
                 Cache::forget('data_db_' . $dbName . '_' . $table);
                 Cache::forget('join_relation_' . $dbName . '_' . $table);
+                
             }
         }
 

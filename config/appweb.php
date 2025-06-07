@@ -1,8 +1,8 @@
 <?php
 
-return [
+// app/Library/Crud/AdminRoutes.php
 
-	
+return [
 
 	/**timezone */
 
@@ -15,7 +15,7 @@ return [
 
 	/**admin */
 	'admin' => [
-		
+
 		'active'=> false,
 		'routes'=>	[
 				"failed_jobs" => "failed_jobs",

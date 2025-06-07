@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\View;
-use App\Library\Crud\DataTables; // Asegúrate de que esta sea la clase correcta
+use App\Library\Crud\DataTables; 
 
 class AdminGridController extends Controller
 {

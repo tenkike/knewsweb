@@ -14,10 +14,18 @@ class AdminRouteServiceProvider extends ServiceProvider
      *
      * @return void
      */
+
+    protected $routes = [];
+    protected $dataMetrics= [];
+
     public function register()
     {
         $this->app->singleton('adminroutes', function ($app) {
-            return new AdminRoutes(); // No es necesario usar la barra invertida para instanciar la clase
+            $adminRoutes = new AdminRoutes();
+            $adminRoutes::init_routes();
+            $adminRoutes::$routeMenu;
+            $adminRoutes::$dataGraficMetrics;
+            return $adminRoutes;
         });
     }
 
@@ -28,23 +36,10 @@ class AdminRouteServiceProvider extends ServiceProvider
      */
     public function boot()
     {
-        // Inyectar 'adminroutes' en lugar de usar app('adminroutes')
-        $AdminRoutes = $this->app->make('adminroutes');
-
-        // Inicializar las rutas
-        $AdminRoutes::init_routes();
-
-        // Obtener las rutas y datos de esquema
-        $this->routes = $AdminRoutes->routeMenu;
-
-        // Verificar si las rutas están definidas
-        if (empty($this->routes)) {
-            // Manejar el caso en que no hay rutas definidas
-            Log::warning('No hay rutas definidas en AdminRouteServiceProvider');
-        }
-
-        // Compartir datos con las vistas
-        $this->shareAdminData($this->routes);
+        $this->routes = $this->app->make('adminroutes')::$routeMenu;
+        $this->dataMetrics = $this->app->make('adminroutes')::$dataGraficMetrics;
+        $this->menuListSideBar($this->routes);
+        $this->dashBoardMetrics($this->dataMetrics);
     }
 
     
@@ -54,15 +49,39 @@ class AdminRouteServiceProvider extends ServiceProvider
      * @param array $route
      * @return void
      */
-    private function shareAdminData($route)
+    private function menuListSideBar($routes)
     {
-        View::composer('admin.*', function ($view) use ($route) {
+        View::composer('admin.*', function ($view) use ($routes) {
+            // Verifica si hay datos de rutas
+            if (empty($routes)) {
+                Log::warning('No hay rutas definidas en AdminRouteServiceProvider'. json_encode($routes) . ' en ' . __METHOD__);
+            }
             $result = [
-                'routes' => $route,
+                'routes' => $routes,
                 'nameGrid' => config('appweb.admin.grid.title'),
                 'nameForm' => config('appweb.admin.form.title'),
             ];
 
+            $view->with($result);
+        });
+    }
+
+    /**
+     * Compartir métricas del dashboard con la vista de administración.
+     *
+     * @param array $data
+     * @return void
+     */
+    private function dashBoardMetrics($data)
+    {
+        View::composer('admin.dashboard', function ($view) use ($data) {
+            // Verifica si hay datos de métricas
+            if (empty($data)) {
+                Log::warning('No se encontraron datos de métricas para el dashboard: ' . json_encode($data) . ' en ' . __METHOD__);
+                $data = '{}';
+            }
+
+            $result = ['dataMetrics' => is_string($data) ? $data : json_encode($data)];
             $view->with($result);
         });
     }
