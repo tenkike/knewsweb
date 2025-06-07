@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\Log;
 use App\Library\Crud\AdminRoutes;
 
 class AdminRouteServiceProvider extends ServiceProvider
@@ -15,7 +16,7 @@ class AdminRouteServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        $this->app->bind('adminroutes', function ($app) {
+        $this->app->singleton('adminroutes', function ($app) {
             return new AdminRoutes(); // No es necesario usar la barra invertida para instanciar la clase
         });
     }
@@ -35,13 +36,18 @@ class AdminRouteServiceProvider extends ServiceProvider
 
         // Obtener las rutas y datos de esquema
         $this->routes = $AdminRoutes->routeMenu;
-        $this->getShemaData = $AdminRoutes::$schemaDataTable;
+
+        // Verificar si las rutas están definidas
+        if (empty($this->routes)) {
+            // Manejar el caso en que no hay rutas definidas
+            Log::warning('No hay rutas definidas en AdminRouteServiceProvider');
+        }
 
         // Compartir datos con las vistas
         $this->shareAdminData($this->routes);
-        $this->shareDashboardData($this->getShemaData);
     }
 
+    
     /**
      * Compartir datos comunes con las vistas de administración.
      *
@@ -57,20 +63,6 @@ class AdminRouteServiceProvider extends ServiceProvider
                 'nameForm' => config('appweb.admin.form.title'),
             ];
 
-            $view->with($result);
-        });
-    }
-
-    /**
-     * Compartir datos del dashboard con la vista de administración.
-     *
-     * @param array $data
-     * @return void
-     */
-    private function shareDashboardData($data)
-    {
-        View::composer('admin.dashboard', function ($view) use ($data) {
-            $result = ['getShemaData' => $data];
             $view->with($result);
         });
     }

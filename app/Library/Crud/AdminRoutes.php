@@ -13,7 +13,7 @@ class AdminRoutes extends DataSchema {
 
 	private static $getDataCols;
 	
-	public function __Construct()
+	public function __construct()
 	{
 			parent::__construct();
 			$this->routeMenu= self::_setRoutes();	

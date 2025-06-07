@@ -2,13 +2,14 @@
 namespace App\Library\Crud;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 
 class DataSchema
 {
     private const DB_DATABASE = 'carthome';
-	private const CACHE_TTL = 1440; // 24 horas en minutos
+	private const CACHE_TTL = 0.60; // 1 hora en minutos
     public static $schemaDataTable = [];
 
     protected function __construct()
@@ -116,6 +117,10 @@ class DataSchema
     {
         $result = [];
         $totalAvg = $totalDataLength = $totalIndexLength = 0;
+        if (empty($data)) {
+            Log::error("Error en processSchemaDataTable: data está vacío". json_encode($data));
+            return;
+        }
 
         foreach ($data as $row) {
             $tableName = $row['TABLE_NAME'];
@@ -158,10 +163,14 @@ class DataSchema
     {
         $cacheKey = 'schema_tables_' . self::DB_DATABASE;
 
+        Log::info('Llamada a getInformationTables');
+
         return Cache::remember($cacheKey, self::CACHE_TTL, function () {
             try {
                 $data = self::querySchemaTables();
+
                 if (empty($data)) {
+                    Log::error("Error en getInformationTables: data está vacío");
                     return null;
                 }
 
@@ -179,6 +188,7 @@ class DataSchema
         });
     }
 
+
     /**
      * Maneja excepciones y registra detalles de error.
      *
@@ -187,7 +197,7 @@ class DataSchema
      */
     private static function handleException(\Exception $e): void
     {
-        \Log::error("Error en DataSchema: Código: {$e->getCode()}, Mensaje: {$e->getMessage()}, Línea: {$e->getLine()}");
+        Log::error("Error en DataSchema: Código: {$e->getCode()}, Mensaje: {$e->getMessage()}, Línea: {$e->getLine()}");
     }
 
     /**
