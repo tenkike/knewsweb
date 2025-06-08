@@ -106,7 +106,7 @@ class AdminRoutes extends DataSchema {
 		}
 
 	
-	private static function _setRoutes(){
+	public static function _setRoutes(){
 		// Puedes descomentar la siguiente línea para activar las rutas de administración
 		// Si no se activa, se obtienen las tablas de información	
 		//\Config::set('appweb.admin.active', true);
@@ -125,6 +125,7 @@ class AdminRoutes extends DataSchema {
 		}
 
 		self::$routeMenu = $data;
+		return $data;
 	}
 
 

@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use App\Library\Crud\AdminRoutes;
 
@@ -23,8 +24,6 @@ class AdminRouteServiceProvider extends ServiceProvider
         $this->app->singleton('adminroutes', function ($app) {
             $adminRoutes = new AdminRoutes();
             $adminRoutes::init_routes();
-            $adminRoutes::$routeMenu;
-            $adminRoutes::$dataGraficMetrics;
             return $adminRoutes;
         });
     }
@@ -36,13 +35,29 @@ class AdminRouteServiceProvider extends ServiceProvider
      */
     public function boot()
     {
-        $this->routes = $this->app->make('adminroutes')::$routeMenu;
-        $this->dataMetrics = $this->app->make('adminroutes')::$dataGraficMetrics;
-        $this->menuListSideBar($this->routes);
-        $this->dashBoardMetrics($this->dataMetrics);
+        $adminDataRoutes = $this->app->make('adminroutes');
+        if (!$adminDataRoutes) {
+            Log::error('No se pudo inicializar AdminRoutes en ' . __METHOD__);
+            return;
+        }
+        
+        $dbName = $adminDataRoutes::getDatabaseName();
+        $routes = $adminDataRoutes::$routeMenu;
+        $this->menuListSideBar($routes);
+
+        
+        $dataMetrics = Cache::get('schema_tables_metrics_' . $dbName);
+        if (empty($dataMetrics)) {
+            Log::info('No se encontraron métricas en caché, regenerando para ' . $dbName);
+            $tables = $adminDataRoutes::querySchemaTables();
+            $adminDataRoutes::processDataMetrics($tables);
+            $dataMetrics = Cache::get('schema_tables_metrics_' . $dbName);
+        } else {
+            Log::info('Obteniendo métricas de caché para ' . $dbName);
+        }
+        $this->dashBoardMetrics($dataMetrics);
     }
 
-    
     /**
      * Compartir datos comunes con las vistas de administración.
      *
@@ -52,7 +67,7 @@ class AdminRouteServiceProvider extends ServiceProvider
     private function menuListSideBar($routes)
     {
         View::composer('admin.*', function ($view) use ($routes) {
-            // Verifica si hay datos de rutas
+        
             if (empty($routes)) {
                 Log::warning('No hay rutas definidas en AdminRouteServiceProvider'. json_encode($routes) . ' en ' . __METHOD__);
             }
@@ -75,13 +90,12 @@ class AdminRouteServiceProvider extends ServiceProvider
     private function dashBoardMetrics($data)
     {
         View::composer('admin.dashboard', function ($view) use ($data) {
-            // Verifica si hay datos de métricas
             if (empty($data)) {
                 Log::warning('No se encontraron datos de métricas para el dashboard: ' . json_encode($data) . ' en ' . __METHOD__);
                 $data = '{}';
             }
 
-            $result = ['dataMetrics' => is_string($data) ? $data : json_encode($data)];
+            $result = ['dataMetrics' => is_string($data) ? $data : json_encode($data ?: new \stdClass())];
             $view->with($result);
         });
     }

@@ -202,7 +202,6 @@ return [
         /*app web */
         //App\Providers\WebServiceProvider::class,
         //App\Providers\WebViewComposerServiceProvider::class,
-        Binafy\LaravelUserMonitoring\Providers\LaravelUserMonitoringServiceProvider::class
 	
     ],
 

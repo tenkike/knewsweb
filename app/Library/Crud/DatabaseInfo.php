@@ -14,11 +14,11 @@ class DatabaseInfo extends DataSchema
     protected $columnTypes = [];
     protected $dataTypes = [];
     protected $ordinalPositions = [];
-    protected $isNullable = [];
-    protected $columnComments = [];
-    protected $tableNames = [];
-    protected $maxLengths = [];
-    protected $tableSchemaRelations = [];
+    public $isNullable = [];
+    public $columnComments = [];
+    public $tableNames = [];
+    public $maxLengths = [];
+    public $tableSchemaRelations = [];
 
     private const CACHE_TTL = 1440; // 24 horas en minutos
 
@@ -33,7 +33,7 @@ class DatabaseInfo extends DataSchema
      *
      * @return string|null
      */
-    protected function getCurrentTable(): ?string
+    public function getCurrentTable(): ?string
     {
         $table = Request::segment(3);
         if ($table && array_key_exists($table, $this->tableNames)) {

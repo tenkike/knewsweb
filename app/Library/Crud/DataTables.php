@@ -450,7 +450,7 @@ class DataTables extends DatabaseInfo
      *
      * @return array
      */
-    protected function getDataDb(): array
+    public function getDataDb(): array
     {
         return $this->dataDb;
     }
@@ -472,133 +472,133 @@ class DataTables extends DatabaseInfo
      * @return void
      */
         private function fetchDataDb(): void
-{
-    $tableName = $this->getCurrentTable();
-    if (!$tableName) {
-        Log::warning('No se proporcionó nombre de tabla en la URL', ['url' => Request::fullUrl()]);
-        $this->gridHtml = [
-            'data' => [],
-            'recordsTotal' => 0,
-            'recordsFiltered' => 0,
-            'draw' => (int) Request::input('draw', 1),
-        ];
-        return;
-    }
-
-    if (!$this->validateTable($tableName)) {
-        Log::warning("Tabla no encontrada: $tableName", ['available_tables' => array_keys($this->allTables)]);
-        $this->gridHtml = [
-            'error' => 'Tabla no encontrada',
-            'data' => [],
-            'recordsTotal' => 0,
-            'recordsFiltered' => 0,
-            'draw' => (int) Request::input('draw', 1),
-        ];
-        return;
-    }
-
-    $cacheKey = 'data_db_' . self::getDatabaseName() . '_' . $tableName . '_' . md5(json_encode(Request::all()));
-    $data = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($tableName) {
-        try {
-            $query = DB::table($tableName);
-            $id = $this->getColumnKey($tableName, 'PRI') ?? 'id';
-
-            // Log de parámetros recibidos
-            Log::debug("Procesando consulta para tabla: $tableName", [
-                'start' => Request::input('start', 0),
-                'length' => Request::input('length', 10),
-                'search' => Request::input('search.value'),
-                'order_column_index' => Request::input('order.0.column'),
-                'order_column' => Request::input('columns.' . Request::input('order.0.column') . '.data'),
-                'order_dir' => Request::input('order.0.dir', 'asc'),
-            ]);
-
-            // Ordenación
-            $orderColumnIndex = Request::input('order.0.column');
-            if ($orderColumnIndex !== null) {
-                $orderColumn = Request::input("columns.$orderColumnIndex.data");
-                $orderDir = Request::input('order.0.dir', 'asc');
-                if ($orderColumn && Schema::hasColumn($tableName, $orderColumn)) {
-                    $query->orderBy($orderColumn, $orderDir);
-                } else {
-                    Log::warning("Columna de ordenación inválida: $orderColumn", ['table' => $tableName]);
-                }
-            }
-            if (!$orderColumnIndex && $id && Schema::hasColumn($tableName, $id)) {
-                $query->orderBy("$tableName.$id", 'asc');
-            }
-
-            // Búsqueda
-            if ($search = Request::input('search.value')) {
-                $columns = $this->allColumnTable[$tableName] ?? Schema::getColumnListing($tableName);
-                if (!empty($columns)) {
-                    $query->where(function ($q) use ($tableName, $search, $columns) {
-                        foreach ($columns as $column) {
-                            if (Schema::hasColumn($tableName, $column)) {
-                                $q->orWhere("$tableName.$column", 'LIKE', "%$search%");
-                            }
-                        }
-                    });
-                } else {
-                    Log::warning("No se encontraron columnas para búsqueda en tabla: $tableName");
-                }
-            }
-
-            // Paginación
-            $start = (int) Request::input('start', 0);
-            $length = (int) Request::input('length', 10);
-
-            // Log de la consulta SQL
-            $sql = $query->toSql();
-            $bindings = $query->getBindings();
-            Log::debug("Consulta SQL: $sql", ['bindings' => $bindings]);
-
-            $totalRecords = DB::table($tableName)->count();
-            $filteredRecords = $search ? $query->count() : $totalRecords;
-
-            // Obtener filas
-            $rows = $query->skip($start)->take($length)->get()->map(function ($row) use ($tableName) {
-                $rowArray = (array) $row;
-                // Verificar que 'id' exista antes de usarlo
-                $rowId = isset($row->id) ? $row->id : (isset($rowArray[$this->getColumnKey($tableName, 'PRI')]) ? $rowArray[$this->getColumnKey($tableName, 'PRI')] : null);
-                if ($rowId === null) {
-                    Log::warning("Fila sin ID en tabla: $tableName", ['row' => $rowArray]);
-                }
-                $rowArray['actions'] = [
-                    'update' => $rowId ? "/admin/form/$tableName/update/$rowId" : '#',
-                    'delete' => $rowId ? "/admin/$tableName/delete/$rowId" : '#',
-                    'images' => $rowId ? "/admin/$tableName/images/$rowId" : '#',
-                ];
-                return $rowArray;
-            })->toArray();
-
-            Log::debug("Filas obtenidas: " . count($rows), ['rows' => $rows]);
-
-            return [
-                'data' => $rows,
-                'recordsTotal' => $totalRecords,
-                'recordsFiltered' => $filteredRecords,
-            ];
-        } catch (\Exception $e) {
-            Log::error("Error al consultar tabla $tableName: " . $e->getMessage(), [
-                'trace' => $e->getTraceAsString(),
-                'params' => Request::all(),
-            ]);
-            return [
+    {
+        $tableName = $this->getCurrentTable();
+        if (!$tableName) {
+            Log::warning('No se proporcionó nombre de tabla en la URL', ['url' => Request::fullUrl()]);
+            $this->gridHtml = [
                 'data' => [],
                 'recordsTotal' => 0,
                 'recordsFiltered' => 0,
+                'draw' => (int) Request::input('draw', 1),
             ];
+            return;
         }
-    });
 
-    $this->gridHtml = [
-        'data' => $data['data'],
-        'recordsTotal' => $data['recordsTotal'],
-        'recordsFiltered' => $data['recordsFiltered'],
-        'draw' => (int) Request::input('draw', 1),
-    ];
-}
+        if (!$this->validateTable($tableName)) {
+            Log::warning("Tabla no encontrada: $tableName", ['available_tables' => array_keys($this->allTables)]);
+            $this->gridHtml = [
+                'error' => 'Tabla no encontrada',
+                'data' => [],
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'draw' => (int) Request::input('draw', 1),
+            ];
+            return;
+        }
+
+        $cacheKey = 'data_db_' . self::getDatabaseName() . '_' . $tableName . '_' . md5(json_encode(Request::all()));
+        $data = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($tableName) {
+            try {
+                $query = DB::table($tableName);
+                $id = $this->getColumnKey($tableName, 'PRI') ?? 'id';
+
+                // Log de parámetros recibidos
+                Log::debug("Procesando consulta para tabla: $tableName", [
+                    'start' => Request::input('start', 0),
+                    'length' => Request::input('length', 10),
+                    'search' => Request::input('search.value'),
+                    'order_column_index' => Request::input('order.0.column'),
+                    'order_column' => Request::input('columns.' . Request::input('order.0.column') . '.data'),
+                    'order_dir' => Request::input('order.0.dir', 'asc'),
+                ]);
+
+                // Ordenación
+                $orderColumnIndex = Request::input('order.0.column');
+                if ($orderColumnIndex !== null) {
+                    $orderColumn = Request::input("columns.$orderColumnIndex.data");
+                    $orderDir = Request::input('order.0.dir', 'asc');
+                    if ($orderColumn && Schema::hasColumn($tableName, $orderColumn)) {
+                        $query->orderBy($orderColumn, $orderDir);
+                    } else {
+                        Log::warning("Columna de ordenación inválida: $orderColumn", ['table' => $tableName]);
+                    }
+                }
+                if (!$orderColumnIndex && $id && Schema::hasColumn($tableName, $id)) {
+                    $query->orderBy("$tableName.$id", 'asc');
+                }
+
+                // Búsqueda
+                if ($search = Request::input('search.value')) {
+                    $columns = $this->allColumnTable[$tableName] ?? Schema::getColumnListing($tableName);
+                    if (!empty($columns)) {
+                        $query->where(function ($q) use ($tableName, $search, $columns) {
+                            foreach ($columns as $column) {
+                                if (Schema::hasColumn($tableName, $column)) {
+                                    $q->orWhere("$tableName.$column", 'LIKE', "%$search%");
+                                }
+                            }
+                        });
+                    } else {
+                        Log::warning("No se encontraron columnas para búsqueda en tabla: $tableName");
+                    }
+                }
+
+                // Paginación
+                $start = (int) Request::input('start', 0);
+                $length = (int) Request::input('length', 10);
+
+                // Log de la consulta SQL
+                $sql = $query->toSql();
+                $bindings = $query->getBindings();
+                Log::debug("Consulta SQL: $sql", ['bindings' => $bindings]);
+
+                $totalRecords = DB::table($tableName)->count();
+                $filteredRecords = $search ? $query->count() : $totalRecords;
+
+                // Obtener filas
+                $rows = $query->skip($start)->take($length)->get()->map(function ($row) use ($tableName) {
+                    $rowArray = (array) $row;
+                    // Verificar que 'id' exista antes de usarlo
+                    $rowId = isset($row->id) ? $row->id : (isset($rowArray[$this->getColumnKey($tableName, 'PRI')]) ? $rowArray[$this->getColumnKey($tableName, 'PRI')] : null);
+                    if ($rowId === null) {
+                        Log::warning("Fila sin ID en tabla: $tableName", ['row' => $rowArray]);
+                    }
+                    $rowArray['actions'] = [
+                        'update' => $rowId ? "/admin/form/$tableName/update/$rowId" : '#',
+                        'delete' => $rowId ? "/admin/$tableName/delete/$rowId" : '#',
+                        'images' => $rowId ? "/admin/$tableName/images/$rowId" : '#',
+                    ];
+                    return $rowArray;
+                })->toArray();
+
+                Log::debug("Filas obtenidas: " . count($rows), ['rows' => $rows]);
+
+                return [
+                    'data' => $rows,
+                    'recordsTotal' => $totalRecords,
+                    'recordsFiltered' => $filteredRecords,
+                ];
+            } catch (\Exception $e) {
+                Log::error("Error al consultar tabla $tableName: " . $e->getMessage(), [
+                    'trace' => $e->getTraceAsString(),
+                    'params' => Request::all(),
+                ]);
+                return [
+                    'data' => [],
+                    'recordsTotal' => 0,
+                    'recordsFiltered' => 0,
+                ];
+            }
+        });
+
+        $this->gridHtml = [
+            'data' => $data['data'],
+            'recordsTotal' => $data['recordsTotal'],
+            'recordsFiltered' => $data['recordsFiltered'],
+            'draw' => (int) Request::input('draw', 1),
+        ];
+    }
 
     /**
      * Obtiene opciones para campos relacionados.

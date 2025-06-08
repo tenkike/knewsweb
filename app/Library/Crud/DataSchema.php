@@ -10,6 +10,7 @@ class DataSchema
 {
     private const DB_DATABASE = 'carthome';
 	private const CACHE_TTL = 1440; // 24 horas en minutos
+    private const METRICS_CACHE_TTL = 60; // 1 hora en minutos
     public static $dataGraficMetrics = null;
 
     protected function __construct()
@@ -91,18 +92,18 @@ class DataSchema
      * @param int $bytes
      * @return array
      */
-    private static function convertBytes(string $unit, int $bytes): array
+    public static function convertBytes(string $unit, int $bytes): array
     {
         $result = [];
         switch (strtoupper($unit)) {
             case 'KB':
-                $result['kb'] = $bytes / 1024;
+                $result['KB'] = $bytes / 1024;
                 break;
             case 'MB':
-                $result['mb'] = $bytes / (1024 * 1024);
+                $result['MB'] = $bytes / (1024 * 1024);
                 break;
             case 'GB':
-                $result['gb'] = $bytes / (1024 * 1024 * 1024);
+                $result['GB'] = $bytes / (1024 * 1024 * 1024);
                 break;
         }
         return $result;
@@ -114,12 +115,12 @@ class DataSchema
      * @param array $data
      * @return void
      */
-    protected static function processDataMetrics(array $data): void
+    public static function processDataMetrics(array $data): void
     {
         $cacheKey = 'schema_tables_metrics_' . self::DB_DATABASE;
 
         // Usar Cache::remember con las variables necesarias en el closure
-        $result = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($data, $cacheKey, &$result, &$totalAvg, &$totalDataLength, &$totalIndexLength) {
+        $result = Cache::remember($cacheKey, self::METRICS_CACHE_TTL, function () use ($data, $cacheKey, &$result, &$totalAvg, &$totalDataLength, &$totalIndexLength) {
             Log::info('Procesando datos para vista Dashboard tablas', ['cacheKey' => $cacheKey]);
 
             $result = [];
@@ -214,7 +215,7 @@ class DataSchema
      * @param \Exception $e
      * @return void
      */
-    private static function handleException(\Exception $e): void
+    protected static function handleException(\Exception $e): void
     {
         Log::error("Error en DataSchema: Código: {$e->getCode()}, Mensaje: {$e->getMessage()}, Línea: {$e->getLine()}");
     }
@@ -226,7 +227,7 @@ class DataSchema
      * @param array $bindings
      * @return array
      */
-    private static function executeRawQuery(string $query, array $bindings = []): array
+    protected static function executeRawQuery(string $query, array $bindings = []): array
     {
         try {
             return DB::select(DB::raw($query)->getValue(DB::connection()->getQueryGrammar()), $bindings);
@@ -242,7 +243,7 @@ class DataSchema
      * @param array $data
      * @return array
      */
-    private static function toArray(array $data): array
+    public static function toArray(array $data): array
     {
         $results = [];
         foreach ($data as $index => $row) {
@@ -258,7 +259,7 @@ class DataSchema
      *
      * @return array
      */
-    private static function querySchemaTables(): array
+    public static function querySchemaTables(): array
     {
         $cacheKey = 'schema_tables_data_' . self::DB_DATABASE;
 
@@ -274,7 +275,7 @@ class DataSchema
      * @param string $table
      * @return array
      */
-    private static function querySchemaColumns(string $table): array
+    protected static function querySchemaColumns(string $table): array
     {
         $cacheKey = 'schema_columns_' . self::DB_DATABASE . '_' . $table;
 
@@ -290,33 +291,31 @@ class DataSchema
      * @param string $table
      * @return array
      */
-    private static function querySchemaRelationsTables(string $table): array
+    protected static function querySchemaRelationsTables(string $table): array
     {
-        $cacheKey = 'schema_relations_' . self::DB_DATABASE . '_' . $table;
+    $cacheKey = 'schema_relations_' . self::DB_DATABASE . '_' . $table;
 
-        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($table) {
-            $query = "
-                SELECT K.TABLE_NAME AS UNIQUE_TABLE_NAME,
-                       K.COLUMN_NAME,
-                       K.UNIQUE_CONSTRAINT_SCHEMA,
-                       K.UNIQUE_CONSTRAINT_NAME,
-                       K.REFERENCED_TABLE_NAME,
-                       K.REFERENCED_COLUMN_NAME,
-                       K.CONSTRAINT_NAME AS FOREING_CONSTRAINT_NAME,
-                       K.ORDINAL_POSITION,
-                       K.POSITION_IN_UNIQUE_CONSTRAINT,
-                       K.CONSTRAINT_SCHEMA
-                FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS RC
-                INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE K
-                    ON K.CONSTRAINT_CATALOG = RC.CONSTRAINT_CATALOG
-                    AND K.CONSTRAINT_SCHEMA = RC.CONSTRAINT_SCHEMA
-                    AND K.CONSTRAINT_NAME = RC.CONSTRAINT_NAME
-                    AND K.TABLE_NAME = RC.TABLE_NAME
-                    AND K.REFERENCED_TABLE_NAME = RC.REFERENCED_TABLE_NAME
-                WHERE K.CONSTRAINT_SCHEMA = ? AND K.TABLE_NAME = ?
-                ORDER BY K.CONSTRAINT_NAME
-            ";
-            return self::toArray(self::executeRawQuery($query, [self::DB_DATABASE, $table]));
-        });
-    }
+    return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($table) {
+        $query = "
+            SELECT K.TABLE_NAME AS UNIQUE_TABLE_NAME,
+                   K.COLUMN_NAME,
+                   K.REFERENCED_TABLE_NAME,
+                   K.REFERENCED_COLUMN_NAME,
+                   K.CONSTRAINT_NAME AS FOREING_CONSTRAINT_NAME,
+                   K.ORDINAL_POSITION,
+                   K.POSITION_IN_UNIQUE_CONSTRAINT,
+                   K.CONSTRAINT_SCHEMA
+            FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS RC
+            INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE K
+                ON K.CONSTRAINT_CATALOG = RC.CONSTRAINT_CATALOG
+                AND K.CONSTRAINT_SCHEMA = RC.CONSTRAINT_SCHEMA
+                AND K.CONSTRAINT_NAME = RC.CONSTRAINT_NAME
+                AND K.TABLE_NAME = RC.TABLE_NAME
+                AND K.REFERENCED_TABLE_NAME = RC.REFERENCED_TABLE_NAME
+            WHERE K.CONSTRAINT_SCHEMA = ? AND K.TABLE_NAME = ?
+            ORDER BY K.CONSTRAINT_NAME
+        ";
+        return self::toArray(self::executeRawQuery($query, [self::DB_DATABASE, $table]));
+    });
+}
 }

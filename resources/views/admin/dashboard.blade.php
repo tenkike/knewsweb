@@ -48,6 +48,7 @@
             legend.chart.update();
         }
 
+        console.log("metricas", {!! $dataMetrics !!});
         new DashboardChart({!! $dataMetrics !!}, HandleLeave, HandleHover);
         
     });
